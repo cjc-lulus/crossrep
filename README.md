@@ -1,23 +1,35 @@
 # Readme
 
-This script is to help on generating snowflakes DDL and grants statement for account level objects and unsupported database level objects by snowflake replication including but not limited to : warehouse, network policy, resource monitor, user, roles, privileges, stage, pipe, account_usage etc.
+This script is to help on generating snowflakes DDL and grants statement for account level objects and unsupported
+database level objects by snowflake replication including but not limited to : warehouse, network policy, resource
+monitor, user, roles, privileges, stage, pipe, account_usage etc.
 
-## Design of cross region/cross cloud replication script
+## Design
+
+of cross region/cross cloud replication script
 
 Steps:
 
-1. Connecting to your source account, gather metadata information, store it in a specified database and schema (by env_xxx.sh configuration file, this is done via -c option described below)
-1. Generating DDLs and Grant statements using the metadata gathered by step 1 (this is done via all other options other than -c )
-You can then execute the generated scripts on your target account to replay/create the objects.
+1. Connecting to your source account, gather metadata information, store it in a specified database and schema
+    (by env_xxx.sh configuration file, this is done via -c option described below)
+1. Generating DDLs and Grant statements using the metadata gathered by step 1 (this is done via all other options other
+    than -c ). You can then execute the generated scripts on your target account to replay/create the objects.
 
 ## Requirements
 
 - Python 3
-- SnowSQL and Python connector
+    - `snowflake-connector-python` package
+- SnowSQL
 
 ## Usage
 
-Command options description in `python main.py -x` where -x in one of the following:
+##### Example Usage
+
+```
+python main.py -m CUSTOMER -d all -r nopwd -g all -l all -stage all -pipe all -b -f -o WAREHOUSE NETWORK_POLICY RESOURCE_MONITOR -ddl all -elt all
+```
+
+##### Command Options
 
 ```
 -u                  To create a list of user tables to store account_usage data in schema AU_DATABASE and database AU_SCHEMA of source snowflake account. This database can be replicated to target account.
@@ -55,7 +67,7 @@ Command options description in `python main.py -x` where -x in one of the follow
 -val filename:      To validate row count and agghash for each tables between target and source account, need to connect to both
 ```
 
-### Step 1
+##### Step 1
 
 Modify env_xxx.sh for environment variable used by python script.
 
@@ -114,7 +126,7 @@ SNOWHOUSE_CUST_ACCOUNT=ZETAGLOBAL
 
 In a terminal command line, run 'source env_xxx.sh' to pick up environment variables
 
-### Step 2: to create all metadata needed initially
+##### Step 2: to create all metadata needed initially
 
 Note: first run, 2nd or later run will have incremental updates
 
@@ -150,7 +162,7 @@ ALL_PIPES
 ALL_GLOBAL_DBS
 ```
 
-### Step 3
+##### Step 3
 
 Generate cross-database foreign-keys, default sequence handling files and Materialized views (including invalid MVs),  and all external tables 
 
@@ -169,7 +181,7 @@ The following files are generated:
 - a3_drop_MV_xxx.sql
 - a3_crossdb_MVDDL_xxx.sql
 
-### Step 4
+##### Step 4
 
 While customer is close to start replication, ask them to run the following sql files:
 
@@ -186,7 +198,7 @@ In the same time, ask customer to run the following (CUST mode)
 
 ## Replication
 
-### Step 5
+##### Step 5
 
 Generate ALTER database enable replication/failover statements for all databases or database names from a file (by default in the MIGRATION_HOME folder)
 
@@ -199,7 +211,7 @@ The following files are generated:
 - b1_alter_replica_dbs.sql
 - b1_alter_failover_dbs.sql
 
-### Step 6
+##### Step 6
 
 Ask Customer to execute 'ALTER database xxx' generated from previous steps on customer's primary account
 
@@ -207,7 +219,7 @@ Ask Customer to execute 'ALTER database xxx' generated from previous steps on cu
 snowsql -f b1_alter_replica_dbs.sql
 ```
 
-### Step 7
+##### Step 7
 
 Generating sql commands to create and link standby databases into replication group from previous run, as well as
 generate statement to refresh standby database, monitor progress of refreshing and switch over standby databases to
@@ -224,7 +236,7 @@ The following file is generated:
 - b5_switchover_to_standby.sql
 - prod_monitor_last_refresh.sql
 
-### Step 8
+##### Step 8
 
 Customer to execute sql commands generated from previous step on customer's stand-by accounts to create and link standby databases
 
@@ -232,7 +244,7 @@ Customer to execute sql commands generated from previous step on customer's stan
 snowsql -f b2_create_standby_global.sql
 ```
 
-### Step 9
+##### Step 9
 
 Customer to execute sql commands of refresh standby databases on customer's stand-by accounts 
 
@@ -240,7 +252,7 @@ Customer to execute sql commands of refresh standby databases on customer's stan
 snowsql -f b3_refresh_all_global.sql
 ```
 
-### Step 10
+##### Step 10
 
 Customer to execute sql commands of monitor progress of refreshing on customer's stand-by accounts periodically till refreshing is complete
 
@@ -248,7 +260,7 @@ Customer to execute sql commands of monitor progress of refreshing on customer's
 snowsql -f b4_monitor_last_refresh.sql
 ```
 
-### step 11
+##### Step 11
 
 For manual replication, using unloading and loading jobs intead of snowflake replication engine
 
@@ -274,7 +286,7 @@ python main.py -elt dbfile
 1. run generated unloading jobs on source account
 1. run genrated loading jobs on target account
 
-### Step 12
+##### Step 12
 
 Right before frozen
 
@@ -290,7 +302,7 @@ The following files are generated (send over to customers):
 - 43_disable_users.sql
 - 43_enable_users.sql 
 
-### Step 13.1
+##### Step 13.1
 
 Freeze Primary account so there is no changes against primary account
 
@@ -337,7 +349,7 @@ python main.py -r samepwd   => users with dame pwd
 python main.py -r randpwd   => users with random pwd
 ```
 
-### Step 13.2
+##### Step 13.2
 
 Customer to execute sql commands of refresh standby databases on customer's stand-by accounts - final refresh
 
@@ -353,7 +365,7 @@ Customer to execute sql commands of monitor progress of refreshing on customer's
 snowsql -f b4_monitor_last_refresh.sql
 ```
 
-### Step 15
+##### Step 15
 
 Customer to run the following on source account to enable failover for global databases. (this step can be done earlier as well, i.e., with step 6)
 
@@ -361,7 +373,7 @@ Customer to run the following on source account to enable failover for global da
 snowsql -f b1_alter_failover_dbs.sql
 ```
 
-### Step 16
+##### Step 16
 
 Customer to Switch over standby database to primary for failover:
 
@@ -417,7 +429,7 @@ Using CUSTOMER mode as example
 
 Using snowflake replication engine, migrating an account from one region to another region (CUSTOMER mode)
 
-#### Step 1
+##### Step 1
 
 Generate scripts in 2 steps in the order (first step completed successfully before running 2nd step below)
 
@@ -429,7 +441,7 @@ python main.py -m CUSTOMER -b -o WAREHOUSE RESOURCE_MONITOR NETWORK_POLICY -r no
 dbfile is the file name that contains database list in the same folder as this python code parent folder. Command above will generate DDLs
 for account level objects and grants for all objects specicified.
 
-#### Step 2
+##### Step 2
 
 Run replication steps
 
@@ -438,20 +450,25 @@ python main.py -g dbfile
 python main.py -l dbfile
 ```
 
-#### Step 3
+##### Step 3
 
 Run all generated scripts in step 1 above.
 
-### Migrating an account's account level metadata only, no data replication
+### Migrating metadata only
+
+Migrating an account's account level metadata only, no data replication
 
 ```
 python main.py -m CUSTOMER -c all 
 python main.py -m CUSTOMER -b -o WAREHOUSE RESOURCE_MONITOR NETWORK_POLICY -r nopwd -p -d dbfile -stage dbfile -pipe dbfile -f
 ```
 
-Then run all generated scripts in above command .
+Then run all generated scripts in above command.
 
-### Migrating an account from one region to another region or from one cloud to another cloud using manual replication instead of snowflake replication engine
+### Migrating an account
+
+Migrating an account from one region to another region or from one cloud to another cloud using manual replication
+instead of snowflake replication engine
 
 #### Step 1
 
@@ -462,8 +479,8 @@ python main.py -m CUSTOMER -c all
 python main.py -m CUSTOMER -b -o WAREHOUSE RESOURCE_MONITOR NETWORK_POLICY -r nopwd -p -d dbfile -stage dbfile -pipe dbfile  -f -u
 ```
 
-dbfile is the file name that contains database list in the same folder as this python code parent folder. Command above will generate DDLs
-for account level objects and grants for all objects specicified.
+dbfile is the file name that contains database list in the same folder as this python code parent folder. Command above
+will generate DDLs for account level objects and grants for all objects specified.
 
 #### Step 2
 
@@ -480,7 +497,7 @@ Run generated DDLs and ELT jobs.
 
 Run all generated scripts in step 1 above.
 
-### Get everything
+### Migrate everything
 
 You want to get everything including users, roles, privileges, account_level objects, DDL/ELT jobs for manual
 replication, and replication commands from snowflake replication engine.
@@ -490,7 +507,7 @@ python main.py -m CUSTOMER -c all
 python main.py -m CUSTOMER -d all -r nopwd -g all -l all -stage all -pipe all -b -f -o WAREHOUSE NETWORK_POLICY RESOURCE_MONITOR -ddl all -elt all
 ```
 
-### Get RBAC objects and grants
+### Migrate only RBAC objects and grants
 
 You want to get RBAC objects and grants on all objects.
 
@@ -500,11 +517,16 @@ python main.py -m CUSTOMER -d all -r nopwd -b -f
 ```
 
 Note: 
-- Integration can only be geneated from SNOWHOUSE (snowflake internally) due to SHOW INTEGRATIONS not providing enough information for the DDLs.
-- In./prerep/prep.sql job (modify xxx to your user name in stand-by account), it's an example job that may be needed for role, task/SP or manual replication. If you are using snowflake replicaiton engine and role accountadmin, not use task/SPs, you will NOT need to run this job at all. )
-- ./prerep/genPrep.py can help to generate tasks and resume/suspend tasks if you plan to use tasks to refresh your replicated database.
+- Integration can only be generated from SNOWHOUSE (snowflake internally) due to SHOW INTEGRATIONS not providing enough
+    information for the DDLs.
+- In./prep/prep.sql job (modify xxx to your user name in stand-by account), it's an example job that may be needed for
+    role, task/SP or manual replication. If you are using snowflake replicaiton engine and role accountadmin, not use
+    task/SPs, you will NOT need to run this job at all. )
+- ./prep/genPrep.py can help to generate tasks and resume/suspend tasks if you plan to use tasks to refresh your
+    replicated database.
 
-Output script structure (this is where generated DDLs/grants are stored. if not existing in your loacal folder, you should create them ahead of time) under home directory of this crossrep script folder:
+Output script structure (this is where generated DDLs/grants are stored. if not existing in your local folder, you
+should create them ahead of time) under home directory of this crossrep script folder:
 
 ```
 ./scripts
@@ -517,12 +539,17 @@ Output script structure (this is where generated DDLs/grants are stored. if not 
     /snowhouse ==> scripts generated on snowhouse including INTEGRATION DDL, dependency report on snowhouse database 
 ```
 
-For Customers only want to execute the DDL on the target account and not using replication, they can use DR and DR_TEST mode
+For Customers who only want to execute the DDL on the target account and not use replication, they can use DR and DR_TEST
+modes:
 
-*DR*
+##### DR
 
-Load all the scripts under DDL folder, parse all the DDL scripts and execute them one by one.  There will be times when a statement fails because the db objects it depends on has not been created on the target account.  It will retry all the failed SQL statements after the initial round and repeat the re-trying process untill no more successes can be achieve.  Errors will be reported.
+Load all the scripts under DDL folder, parse all the DDL scripts and execute them one by one.  There will be times when
+a statement fails because the db objects it depends on has not been created on the target account.  It will retry all
+the failed SQL statements after the initial round and repeat the re-trying process untill no more successes can be
+achieve.  Errors will be reported.
 
-*DR_TEST*
+##### DR_TEST
 
-Similar to DR mode but it does not run the SQL statements, only output the statement one by one.  For testing purpose only.
+Similar to DR mode but it does not run the SQL statements, only output the statement one by one.  For testing purpose
+only.
